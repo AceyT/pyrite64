@@ -4,6 +4,8 @@
 ## please edit Makefile.custom   ##
 ###################################
 
+RM=rm -vf
+ECHO=echo
 BUILD_DIR=build
 ENGINE_DIR=engine
 ROM_NAME={{ROM_NAME}}
@@ -13,8 +15,23 @@ export N64_INST={{N64_INST}}
 include $(N64_INST)/include/n64.mk
 include $(N64_INST)/include/t3d.mk
 
-N64_CXXFLAGS += -std=gnu++20 -fno-exceptions -Os -Isrc -Isrc/user \
+N64_CXXFLAGS += -std=gnu++20 -fno-exceptions -Isrc -Isrc/user \
 	-I$(ENGINE_DIR)/include
+N64_CFLAGS += -Isrc -Isrc/user \
+	-I$(ENGINE_DIR)/include
+
+RLS_CXXFLAGS = -Os
+RLS_CFLAGS = -Os
+RLS_LDFLAGS = 
+
+DBG_CXXFLAGS = -g -O0 -DDEBUG
+DBG_CFLAGS = -g -O0 -DDEBUG
+DBG_LDFLAGS = -g
+
+ADD_CXXFLAGS = $(RLS_CXXFLAGS)
+ADD_CFLAGS = $(RLS_CFLAGS)
+ADD_LDFLAGS = $(RLS_LDFLAGS)
+
 
 # Allow custom attributes, otherwise GCC (rightfully) complains unknown ones
 $(BUILD_DIR)/src/user/%.o: N64_CXXFLAGS += -Wno-attributes
@@ -23,6 +40,14 @@ src =  $(wildcard src/*.cpp) $(wildcard src/p64/*.cpp) $(wildcard src/user/*.cpp
 
 {{USER_CODE_DIRS}}
 
+c_src = $(filter %.c, $(src))
+cpp_src = $(filter %.cpp, $(src))
+
+OBJS = $(c_src:%.c=$(BUILD_DIR)/%.o) $(cpp_src:%.cpp=$(BUILD_DIR)/%.o)
+
+all: N64_CXXFLAGS+=$(ADD_CXXFLAGS)
+all: N64_CFLAGS+=$(ADD_CFLAGS)
+all: N64_LDFLAGS+=$(ADD_LDFLAGS)
 all: $(ROM_NAME).z64
 
 include Makefile.custom
@@ -55,17 +80,48 @@ build/%.dfs:
 	$(N64_MKDFS) $@ filesystem >/dev/null
 
 $(BUILD_DIR)/$(ROM_NAME).dfs: $(assets_conv)
-$(BUILD_DIR)/$(ROM_NAME).elf: $(src:%.cpp=$(BUILD_DIR)/%.o) $(ENGINE_DIR)/build/engine.a
+$(BUILD_DIR)/$(ROM_NAME).elf: $(src:%.c=$(BUILD_DIR)/%.o) $(src:%.cpp=$(BUILD_DIR)/%.o) $(ENGINE_DIR)/build/engine.a
 
 $(ROM_NAME).z64: N64_ROM_TITLE="{{PROJECT_NAME}}"
 $(ROM_NAME).z64: $(BUILD_DIR)/$(ROM_NAME).dfs
 
 clean:
+
+	@$(ECHO) "[MK]  Cleaning compilation"
+	@$(ECHO) "[MK]  $(RM) $(ROM_NAME).z64"
+	@$(RM) $(ROM_NAME).z64
+	@$(ECHO) "[MK]  $(RM) $(BUILD_DIR)/$(ROM_NAME).elf"
+	@$(RM) $(BUILD_DIR)/$(ROM_NAME).elf
+	@$(ECHO) "[MK]  $(RM) $(OBJS)"
+	@$(RM) $(OBJS)
+
+fclean:
+	@$(ECHO) "[MK]  full clean project"
 	{{P64_SELF_PATH}} --cli --cmd clean {{PROJECT_SELF_PATH}}
 
+assets:
+	@$(ECHO) "[MK]  building assets"
+	{{P64_SELF_PATH}} --cli --cmd assets {{PROJECT_SELF_PATH}}
+
 p64:
+	@$(ECHO) "[MK]  building project"
 	{{P64_SELF_PATH}} --cli --cmd build {{PROJECT_SELF_PATH}}
+
+debug: ADD_CXXFLAGS=$(DBG_CXXFLAGS)
+debug: ADD_CFLAGS=$(DBG_CFLAGS)
+debug: ADD_LDFLAGS=$(DBG_LDFLAGS)
+debug: assets all
+
+rdebug: DBG_CXXFLAGS += -DRDEBUG
+rdebug: DBG_CFLAGS += -DRDEBUG
+rdebug: debug
+
+runremote: debug
+	UNFLoader -r $(ROM_NAME).z64 -g
+
+dbgremote: rdebug
+	UNFLoader -r $(ROM_NAME).z64 -g
 
 -include $(wildcard $(BUILD_DIR)/src/*.d)
 
-.PHONY: all clean
+.PHONY: all clean fclean debug rdebug runremote dbgremote assets

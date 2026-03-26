@@ -50,11 +50,41 @@ void Build::SceneCtx::addAsset(const Project::AssetManagerEntry &entry)
   stringOffset += entry.romPath.size() + 1;
 }
 
+
 bool Build::buildProject(const std::string &configPath)
 {
+  
+  bool assets_builded = buildAssets(configPath);
+  if( !assets_builded )
+  {
+    Utils::Logger::log("Asset build failed!", Utils::Logger::LEVEL_ERROR);
+    return false;
+  }
+
   Project::Project project{configPath};
   auto path = project.getPath();
   Utils::Logger::log("Building project...");
+ 
+  SceneCtx sceneCtx{};
+  sceneCtx.toolchain.scan();
+  sceneCtx.project = &project;
+
+  // Build
+  bool success = sceneCtx.toolchain.runCmdSyncLogged("make -C \"" + path + "\" -j8");
+
+  if(success) {
+    Utils::Logger::log("Build done!");
+  } else {
+    Utils::Logger::log("Build failed!", Utils::Logger::LEVEL_ERROR);
+  }
+  return success;
+}
+
+bool Build::buildAssets(const std::string& configPath)
+{
+  Project::Project project{configPath};
+  auto path = project.getPath();
+  Utils::Logger::log("Building assets...");
 
   if(project.conf.pathN64Inst.empty())
   {
@@ -227,15 +257,8 @@ bool Build::buildProject(const std::string &configPath)
     f.writeToFile(fsDataPath / "conf");
   }
 
-  // Build
-  bool success = sceneCtx.toolchain.runCmdSyncLogged("make -C \"" + path + "\" -j8");
-
-  if(success) {
-    Utils::Logger::log("Build done!");
-  } else {
-    Utils::Logger::log("Build failed!", Utils::Logger::LEVEL_ERROR);
-  }
-  return success;
+  Utils::Logger::log("Assets builded");
+  return true;
 }
 
 bool Build::cleanProject(const Project::Project &project, const CleanArgs &args)

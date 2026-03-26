@@ -33,7 +33,7 @@ CLI::Result CLI::run(int argc, char** argv)
 
   prog.add_argument("--cmd")
     .help("Command to run")
-    .choices("build", "clean");
+    .choices("build", "assets", "clean");
 
   prog.add_argument("--experimental")
     .help("Enable experimental features (may cause instability / break projects)")
@@ -74,6 +74,10 @@ CLI::Result CLI::run(int argc, char** argv)
   if (cmd == "build") {
     printf("Building project: %s\n", argProgPath.c_str());
     res = Build::buildProject(argProgPath);
+  }
+  else if (cmd == "assets") {
+    printf("Building assets for project: %s\n", argProgPath.c_str());
+    res = Build::buildAssets(argProgPath);
   }
   else if (cmd == "clean")
   {

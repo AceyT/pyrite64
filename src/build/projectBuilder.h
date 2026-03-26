@@ -27,6 +27,7 @@ namespace Build
   bool buildNodeGraphAssets(Project::Project &project, SceneCtx &sceneCtx);
 
   bool buildProject(const std::string &path);
+  bool buildAssets(const std::string &path);
 
   struct CleanArgs
   {
